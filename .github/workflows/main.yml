@@ -1,17 +1,20 @@
 name: RDP
 on:
   workflow_dispatch:
+
 jobs:
   secure-rdp:
     runs-on: windows-latest
-    timeout-minutes: 3600
+    # بلا وقت محدد
+    timeout-minutes: 9999
+
     steps:
       - name: Configure Core RDP Settings
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
-          netsh advfirewall firewall delete rule name="RDP-Tailscale"
+          netsh advfirewall firewall delete rule name="RDP-Tailscale" | Out-Null
           netsh advfirewall firewall add rule name="RDP-Tailscale" dir=in action=allow protocol=TCP localport=3389
           Restart-Service -Name TermService -Force
 
@@ -45,20 +48,29 @@ jobs:
 
       - name: Install Developer Tools
         run: |
+          # Enable TLS
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+          
+          # Install Chocolatey
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          
+          refreshenv
+          
           # Git
-          winget install --id Git.Git -e --source winget
+          choco install git -y
           
           # Visual Studio Code
-          winget install --id Microsoft.VisualStudioCode -e --source winget
+          choco install vscode -y
           
           # Python 3
-          winget install --id Python.Python.3.12 -e --source winget
+          choco install python --version=3.12.7 -y
           
           # Node.js LTS
-          winget install --id OpenJS.NodeJS.LTS -e --source winget
+          choco install nodejs-lts -y
           
-          # .NET SDK
-          winget install --id Microsoft.DotNet.SDK.8 -e --source winget
+          # .NET SDK 8
+          choco install dotnet-8.0-sdk -y
 
       - name: Establish Tailscale Connection
         run: |
